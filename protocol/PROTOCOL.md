@@ -13,19 +13,29 @@ but do nothing visible.
 | Area | USB device | Interface | Protocol |
 |---|---|---|---|
 | Keyboard backlight (per-key capable) | `05AF:667B` Jing-Mold/Sunrex "ACER Keyboard" (Chicony `04F2:0117` on some units) | 3 (usage page `0xFF02`) | Acer vendor protocol |
-| Front light bar (below the keyboard deck) | `0D62:A20A` Darfon "InfiniteRing" | 0 (usage page `0xFF01`) | Acer vendor protocol |
+| Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` Darfon | 1 (usage page `0x59`) | **HID LampArray**, 33 lamps |
 | Lid logo | `0D62:A00A` Darfon "Cover Logo" | 1 (usage page `0x59`) | **HID LampArray**, 14 lamps |
 | Rear glass bar (above the I/O ports) | `0D62:A00A` Darfon "Cover Logo" | 2 (usage page `0x59`) | **HID LampArray**, 16 lamps |
 
-The InfiniteRing also exposes a LampArray interface (1, 33 lamps, 360×100 mm) — not
-tested yet, the vendor protocol on interface 0 was sufficient.
+The InfiniteRing also has a vendor interface (0, usage page `0xFF01`) that accepts the
+keyboard protocol below. It only drives part of the strip, brightness and effects behave
+inconsistently, and once the host has taken over the LampArray (autonomous mode = 0) the
+vendor path stops having any visible effect. Use the LampArray.
+
+InfiniteRing lamp map (verified visually on a PH16-73, lamps are numbered left to right):
+
+| Lamps | Location |
+|---|---|
+| 0–3 | left side edge |
+| 4–17 | front edge, left → right |
+| 18–32 | Predator logo and the four diagonal stripes on the right palm rest |
 
 Raw report descriptors and USB attributes of every interface: [`hid-descriptors.txt`](hid-descriptors.txt),
 decoded LampArray report layout: [`lamparray-reports.txt`](lamparray-reports.txt).
 
 ---
 
-## 1. Acer vendor protocol (keyboard, InfiniteRing)
+## 1. Acer vendor protocol (keyboard)
 
 ### Transport
 

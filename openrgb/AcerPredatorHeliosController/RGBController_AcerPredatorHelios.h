@@ -2,7 +2,7 @@
 | RGBController_AcerPredatorHelios.h                        |
 |                                                           |
 |   RGBController for Acer Predator Helios 16 (PH16-7x)     |
-|   keyboard and Darfon InfiniteRing light bar              |
+|   keyboard (Jing-Mold/Sunrex and Chicony MCU)             |
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |
@@ -19,7 +19,7 @@
 class RGBController_AcerPredatorHelios : public RGBController
 {
 public:
-    RGBController_AcerPredatorHelios(std::shared_ptr<AcerPredatorHeliosController> controller_ptr, bool is_keyboard);
+    RGBController_AcerPredatorHelios(std::shared_ptr<AcerPredatorHeliosController> controller_ptr);
     ~RGBController_AcerPredatorHelios();
 
     void        SetupZones();
@@ -33,7 +33,6 @@ public:
 
 private:
     std::shared_ptr<AcerPredatorHeliosController>   controller;
-    bool                                            keyboard;
 
     void        AddEffectMode(const char* mode_name, unsigned char value, bool has_color, bool has_speed);
 };

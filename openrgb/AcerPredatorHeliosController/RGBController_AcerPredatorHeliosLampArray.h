@@ -1,8 +1,8 @@
 /*---------------------------------------------------------*\
 | RGBController_AcerPredatorHeliosLampArray.h               |
 |                                                           |
-|   RGBController for the HID LampArray lid logo and rear   |
-|   glass bar of the Acer Predator Helios 16                |
+|   RGBController for the HID LampArrays of the Acer        |
+|   Predator Helios 16: front light bar, lid logo, glass bar|
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |
@@ -13,6 +13,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include "RGBController.h"
 #include "AcerPredatorHeliosLampArrayController.h"
 
@@ -22,10 +23,13 @@
 class RGBController_AcerPredatorHeliosLampArray : public RGBController
 {
 public:
-    RGBController_AcerPredatorHeliosLampArray(std::shared_ptr<AcerPredatorHeliosLampArrayController> controller_ptr, const char* zone_name);
+    typedef std::vector<std::pair<std::string, unsigned int> > lamp_segments;
+
+    RGBController_AcerPredatorHeliosLampArray(std::shared_ptr<AcerPredatorHeliosLampArrayController> controller_ptr, const lamp_segments& segments);
     ~RGBController_AcerPredatorHeliosLampArray();
 
     void        SetupZones();
+    void        AddLampZone(const std::string& label, unsigned int count);
     void        ResizeZone(int zone, int new_size);
 
     void        DeviceUpdateLEDs();
@@ -36,5 +40,5 @@ public:
 
 private:
     std::shared_ptr<AcerPredatorHeliosLampArrayController>  controller;
-    std::string                                             zone_label;
+    lamp_segments                                           segments;
 };

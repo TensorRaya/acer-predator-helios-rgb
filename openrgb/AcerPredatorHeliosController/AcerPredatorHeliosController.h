@@ -2,7 +2,7 @@
 | AcerPredatorHeliosController.h                            |
 |                                                           |
 |   Driver for Acer Predator Helios 16 (PH16-7x) keyboard   |
-|   MCU and Darfon InfiniteRing light bar (vendor HID)      |
+|   MCU (vendor HID feature reports)                        |
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |

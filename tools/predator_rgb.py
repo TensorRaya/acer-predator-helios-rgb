@@ -8,15 +8,21 @@ No dependencies beyond the Python standard library. Talks to /dev/hidraw* direct
 Zones and the protocol each one speaks:
 
   keyboard   Jing-Mold/Sunrex 05AF:667B (or Chicony 04F2:0117), interface 3  vendor protocol
-  lightbar   Darfon "InfiniteRing" 0D62:A20A, interface 0                    vendor protocol (same as keyboard)
+  lightbar   Darfon "InfiniteRing" 0D62:A20A, interface 1                    HID LampArray (33 lamps:
+             0-3 left edge, 4-17 front edge, 18-32 palm rest logo + stripes)
   logo       Darfon "Cover Logo"  0D62:A00A, interface 1                    HID LampArray (14 lamps)
   glass      Darfon "Cover Logo"  0D62:A00A, interface 2                    HID LampArray (16 lamps)
+
+The InfiniteRing also has a vendor interface 0 that accepts the keyboard protocol, but once the
+LampArray has been taken over by the host (autonomous mode off) that path no longer drives the
+LEDs; use the LampArray.
 
 Examples:
   predator_rgb.py keyboard static  00AEC7 --brightness 100
   predator_rgb.py keyboard breathing FF0000 --speed 9
   predator_rgb.py keyboard perkey  0000FF                # all 128 cells
-  predator_rgb.py lightbar static  00AEC7
+  predator_rgb.py lightbar color 00AEC7
+  predator_rgb.py lightbar color FF00FF --lamps 18-32     # palm rest logo only
   predator_rgb.py logo  color 00FF00
   predator_rgb.py glass color FF00FF --intensity 128
   predator_rgb.py glass firmware                          # hand back to built-in effect
@@ -57,7 +63,7 @@ class HidRaw:
     def write(self, data):
         os.write(self.fd, bytes(data))
 
-# ---------------------------------------------------------------- vendor protocol (keyboard, lightbar)
+# ---------------------------------------------------------------- vendor protocol (keyboard)
 # 8-byte feature report (report id 0): op, p1..p6, checksum = 0xFF - (sum(op..p6) & 0xFF)
 OP_BEGIN, OP_MODE_ZONE, OP_MODE_PERKEY, OP_SET_COLOR, OP_APPLY = 0x88, 0xB1, 0x12, 0x14, 0x08
 EFFECTS = {
@@ -94,7 +100,7 @@ def vendor_perkey(dev, cells, brightness=100):
         dev.write(b"\x00" + frame[off:off + 64])
     vendor_cmd(dev, OP_APPLY, 0x02, PERKEY_EFFECT, 0x05, brightness, 0x08, 0x01)
 
-# ---------------------------------------------------------------- HID LampArray (logo, glass)
+# ---------------------------------------------------------------- HID LampArray (lightbar, logo, glass)
 LA_ATTRIBUTES, LA_RANGE_UPDATE, LA_CONTROL = 0x01, 0x05, 0x06
 
 def lamparray_count(dev):
@@ -112,15 +118,17 @@ def lamparray_count(dev):
 def lamparray_autonomous(dev, enabled):
     dev.set_feature([LA_CONTROL, 1 if enabled else 0])
 
-def lamparray_fill(dev, rgb, intensity=255):
+def lamparray_fill(dev, rgb, intensity=255, first=0, last=None):
     n = lamparray_count(dev)
+    if last is None or last >= n:
+        last = n - 1
     lamparray_autonomous(dev, False)
-    dev.set_feature([LA_RANGE_UPDATE, 0x01] + list(struct.pack("<HH", 0, n - 1)) + list(rgb) + [intensity])
+    dev.set_feature([LA_RANGE_UPDATE, 0x01] + list(struct.pack("<HH", first, last)) + list(rgb) + [intensity])
 
 # ---------------------------------------------------------------- CLI
 ZONES = {
     "keyboard": [(0x05AF, 0x667B, 3), (0x04F2, 0x0117, 3)],
-    "lightbar": [(0x0D62, 0xA20A, 0)],
+    "lightbar": [(0x0D62, 0xA20A, 1)],
     "logo":     [(0x0D62, 0xA00A, 1)],
     "glass":    [(0x0D62, 0xA00A, 2)],
 }
@@ -144,13 +152,17 @@ def main():
     ap.add_argument("--brightness", type=int, default=100, help="0-100 (vendor zones)")
     ap.add_argument("--speed", type=int, default=5, help="1 fast .. 9 slow (vendor zones)")
     ap.add_argument("--intensity", type=int, default=255, help="0-255 (lamparray zones)")
+    ap.add_argument("--lamps", default=None, help="lamp range FIRST-LAST for lamparray zones, e.g. 18-32")
     a = ap.parse_args()
     rgb = parse_rgb(a.rgb)
     zones = list(ZONES) if a.zone == "all" else [a.zone]
+    first, last = 0, None
+    if a.lamps:
+        first, last = (int(x) for x in a.lamps.split("-"))
     for z in zones:
         dev = open_zone(z)
         try:
-            if z in ("keyboard", "lightbar"):
+            if z == "keyboard":
                 if a.mode == "perkey":
                     vendor_perkey(dev, [rgb] * NUM_CELLS, a.brightness)
                 elif a.mode in EFFECTS or a.mode == "off":
@@ -161,9 +173,9 @@ def main():
                 if a.mode == "firmware":
                     lamparray_autonomous(dev, True)
                 elif a.mode == "off":
-                    lamparray_fill(dev, (0, 0, 0), 0)
+                    lamparray_fill(dev, (0, 0, 0), 0, first, last)
                 elif a.mode in ("color", "static"):
-                    lamparray_fill(dev, rgb, a.intensity)
+                    lamparray_fill(dev, rgb, a.intensity, first, last)
                 else:
                     sys.exit(f"{z}: unknown mode {a.mode}")
             print(f"{z}: {a.mode} {a.rgb}")

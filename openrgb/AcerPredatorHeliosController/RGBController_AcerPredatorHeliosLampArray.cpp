@@ -1,8 +1,8 @@
 /*---------------------------------------------------------*\
 | RGBController_AcerPredatorHeliosLampArray.cpp             |
 |                                                           |
-|   RGBController for the HID LampArray lid logo and rear   |
-|   glass bar of the Acer Predator Helios 16                |
+|   RGBController for the HID LampArrays of the Acer        |
+|   Predator Helios 16: front light bar, lid logo, glass bar|
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |
@@ -13,24 +13,26 @@
 #include "RGBController_AcerPredatorHeliosLampArray.h"
 
 /**------------------------------------------------------------------*\
-    @name Acer Predator Helios 16 Lid Logo / Glass Bar
+    @name Acer Predator Helios 16 Light Bar / Lid Logo / Glass Bar
     @category Accessory
     @type USB
     @save :x:
     @direct :white_check_mark:
     @effects :x:
-    @detectors DetectAcerPredatorHeliosLampArrays
-    @comment Darfon "Cover Logo" (0D62:A00A) exposes two standard HID
-        LampArray interfaces: 14 lamps behind the lid logo and 16 lamps
-        in the rear glass bar. Colours are set per lamp via the
-        LampRangeUpdate report; "Firmware" hands control back to the
-        built-in autonomous effect.
+    @detectors DetectAcerPredatorHeliosLightBar,DetectAcerPredatorHeliosLidLogo,DetectAcerPredatorHeliosGlassBar
+    @comment The Darfon "InfiniteRing" (0D62:A20A) and "Cover Logo"
+        (0D62:A00A) expose standard HID LampArray interfaces: 33 lamps
+        on the InfiniteRing (left edge 4, front edge 14, palm rest logo and
+        stripes 15), 14 lamps behind the lid logo and 16 lamps in the rear
+        glass bar.
+        Colours are set per lamp via the LampRangeUpdate report;
+        "Firmware" hands control back to the built-in autonomous effect.
 \*-------------------------------------------------------------------*/
 
-RGBController_AcerPredatorHeliosLampArray::RGBController_AcerPredatorHeliosLampArray(std::shared_ptr<AcerPredatorHeliosLampArrayController> controller_ptr, const char* zone_name)
+RGBController_AcerPredatorHeliosLampArray::RGBController_AcerPredatorHeliosLampArray(std::shared_ptr<AcerPredatorHeliosLampArrayController> controller_ptr, const lamp_segments& segment_list)
 {
     controller  = controller_ptr;
-    zone_label  = zone_name;
+    segments    = segment_list;
 
     name        = controller->GetDeviceName();
     vendor      = "Acer";
@@ -65,22 +67,55 @@ RGBController_AcerPredatorHeliosLampArray::~RGBController_AcerPredatorHeliosLamp
 
 void RGBController_AcerPredatorHeliosLampArray::SetupZones()
 {
-    zone new_zone;
-    new_zone.name       = zone_label;
-    new_zone.type       = ZONE_TYPE_LINEAR;
-    new_zone.leds_min   = controller->GetLampCount();
-    new_zone.leds_max   = controller->GetLampCount();
-    new_zone.leds_count = controller->GetLampCount();
-    zones.push_back(new_zone);
+    unsigned int total     = controller->GetLampCount();
+    unsigned int assigned  = 0;
 
-    for(unsigned int i = 0; i < new_zone.leds_count; i++)
+    /*-----------------------------------------------------*\
+    | One lamp array can span several physical areas (e.g.  |
+    | left edge, front edge and palm rest logo); expose     |
+    | them as separate zones so they can be coloured        |
+    | independently. Whatever the device reports beyond the |
+    | known segments goes into the last zone.               |
+    \*-----------------------------------------------------*/
+    for(unsigned int i = 0; i < segments.size(); i++)
     {
-        led new_led;
-        new_led.name = zone_label + " " + std::to_string(i);
-        leds.push_back(new_led);
+        unsigned int count = segments[i].second;
+
+        if(i == segments.size() - 1)
+        {
+            count = total - assigned;
+        }
+        else if(assigned + count > total)
+        {
+            count = total - assigned;
+        }
+
+        if(count > 0)
+        {
+            AddLampZone(segments[i].first, count);
+            assigned += count;
+        }
     }
 
     SetupColors();
+}
+
+void RGBController_AcerPredatorHeliosLampArray::AddLampZone(const std::string& label, unsigned int count)
+{
+    zone new_zone;
+    new_zone.name       = label;
+    new_zone.type       = ZONE_TYPE_LINEAR;
+    new_zone.leds_min   = count;
+    new_zone.leds_max   = count;
+    new_zone.leds_count = count;
+    zones.push_back(new_zone);
+
+    for(unsigned int i = 0; i < count; i++)
+    {
+        led new_led;
+        new_led.name = label + " " + std::to_string(i);
+        leds.push_back(new_led);
+    }
 }
 
 void RGBController_AcerPredatorHeliosLampArray::ResizeZone(int /*zone*/, int /*new_size*/)

@@ -2,7 +2,7 @@
 | RGBController_AcerPredatorHelios.cpp                      |
 |                                                           |
 |   RGBController for Acer Predator Helios 16 (PH16-7x)     |
-|   keyboard and Darfon InfiniteRing light bar              |
+|   keyboard (Jing-Mold/Sunrex and Chicony MCU)             |
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |
@@ -13,43 +13,38 @@
 #include "RGBController_AcerPredatorHelios.h"
 
 /**------------------------------------------------------------------*\
-    @name Acer Predator Helios 16 Keyboard / InfiniteRing
+    @name Acer Predator Helios 16 Keyboard
     @category Keyboard
     @type USB
     @save :x:
     @direct :white_check_mark:
     @effects :white_check_mark:
-    @detectors DetectAcerPredatorHeliosControllers
+    @detectors DetectAcerPredatorHeliosKeyboard
     @comment Keyboard MCU (Jing-Mold/Sunrex 05AF:667B, Chicony 04F2:0117)
-        interface 3 and Darfon InfiniteRing (0D62:A20A) interface 0 of the
-        Predator Helios 16 PH16-71/72/73. Per-key mode drives 128 cells;
-        the physical key map is not yet known so the keyboard is exposed
-        as a linear zone.
+        interface 3 of the Predator Helios 16 PH16-71/72/73. Per-key mode
+        drives 128 cells; the physical key map is not yet known so the
+        keyboard is exposed as a linear zone.
 \*-------------------------------------------------------------------*/
 
-RGBController_AcerPredatorHelios::RGBController_AcerPredatorHelios(std::shared_ptr<AcerPredatorHeliosController> controller_ptr, bool is_keyboard)
+RGBController_AcerPredatorHelios::RGBController_AcerPredatorHelios(std::shared_ptr<AcerPredatorHeliosController> controller_ptr)
 {
     controller  = controller_ptr;
-    keyboard    = is_keyboard;
 
     name        = controller->GetDeviceName();
     vendor      = "Acer";
-    type        = keyboard ? DEVICE_TYPE_KEYBOARD : DEVICE_TYPE_LEDSTRIP;
-    description = keyboard ? "Acer Predator Helios 16 Keyboard" : "Acer Predator Helios 16 InfiniteRing Light Bar";
+    type        = DEVICE_TYPE_KEYBOARD;
+    description = "Acer Predator Helios 16 Keyboard";
     location    = controller->GetLocation();
 
-    if(keyboard)
-    {
-        mode Direct;
-        Direct.name             = "Direct";
-        Direct.value            = ACER_HELIOS_EFF_PERKEY;
-        Direct.flags            = MODE_FLAG_HAS_PER_LED_COLOR | MODE_FLAG_HAS_BRIGHTNESS;
-        Direct.color_mode       = MODE_COLORS_PER_LED;
-        Direct.brightness_min   = 0;
-        Direct.brightness_max   = 100;
-        Direct.brightness       = 100;
-        modes.push_back(Direct);
-    }
+    mode Direct;
+    Direct.name             = "Direct";
+    Direct.value            = ACER_HELIOS_EFF_PERKEY;
+    Direct.flags            = MODE_FLAG_HAS_PER_LED_COLOR | MODE_FLAG_HAS_BRIGHTNESS;
+    Direct.color_mode       = MODE_COLORS_PER_LED;
+    Direct.brightness_min   = 0;
+    Direct.brightness_max   = 100;
+    Direct.brightness       = 100;
+    modes.push_back(Direct);
 
     AddEffectMode("Static",     ACER_HELIOS_EFF_STATIC,     true,  false);
     AddEffectMode("Breathing",  ACER_HELIOS_EFF_BREATHING,  true,  true);
@@ -114,30 +109,17 @@ RGBController_AcerPredatorHelios::~RGBController_AcerPredatorHelios()
 void RGBController_AcerPredatorHelios::SetupZones()
 {
     zone new_zone;
-
-    if(keyboard)
-    {
-        new_zone.name       = "Keyboard";
-        new_zone.type       = ZONE_TYPE_LINEAR;
-        new_zone.leds_min   = ACER_HELIOS_NUM_CELLS;
-        new_zone.leds_max   = ACER_HELIOS_NUM_CELLS;
-        new_zone.leds_count = ACER_HELIOS_NUM_CELLS;
-    }
-    else
-    {
-        new_zone.name       = "Light Bar";
-        new_zone.type       = ZONE_TYPE_SINGLE;
-        new_zone.leds_min   = 1;
-        new_zone.leds_max   = 1;
-        new_zone.leds_count = 1;
-    }
-
+    new_zone.name       = "Keyboard";
+    new_zone.type       = ZONE_TYPE_LINEAR;
+    new_zone.leds_min   = ACER_HELIOS_NUM_CELLS;
+    new_zone.leds_max   = ACER_HELIOS_NUM_CELLS;
+    new_zone.leds_count = ACER_HELIOS_NUM_CELLS;
     zones.push_back(new_zone);
 
     for(unsigned int i = 0; i < new_zone.leds_count; i++)
     {
         led new_led;
-        new_led.name = keyboard ? ("Key " + std::to_string(i)) : "Light Bar";
+        new_led.name = "Key " + std::to_string(i);
         leds.push_back(new_led);
     }
 

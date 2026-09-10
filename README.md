@@ -32,7 +32,7 @@ This repository writes it all down so the next person needs ten minutes, not a d
 | Zone | USB ID | Interface | Protocol |
 |---|---|---|---|
 | Keyboard | `05AF:667B` (or `04F2:0117`) | 3 | Acer vendor, feature reports + 512-byte per-key frames |
-| Front light bar ("InfiniteRing") | `0D62:A20A` | 0 | Acer vendor, same as keyboard |
+| Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` | 1 | HID LampArray, 33 lamps (left edge 4, front edge 14, palm rest logo 15) |
 | Lid logo | `0D62:A00A` | 1 | HID LampArray, 14 lamps |
 | Rear glass bar | `0D62:A00A` | 2 | HID LampArray, 16 lamps |
 
@@ -47,14 +47,15 @@ sudo udevadm control --reload && sudo udevadm trigger      # then re-plug or log
 tools/predator_rgb.py keyboard static  00AEC7            # whole keyboard, one colour
 tools/predator_rgb.py keyboard breathing FF0000 --speed 9
 tools/predator_rgb.py keyboard perkey  0000FF            # per-key frame (all 128 cells)
-tools/predator_rgb.py lightbar static  00AEC7
+tools/predator_rgb.py lightbar color 00AEC7
+tools/predator_rgb.py lightbar color FF00FF --lamps 18-32   # palm rest logo only
 tools/predator_rgb.py logo  color 00FF00
 tools/predator_rgb.py glass color FF00FF --intensity 128
 tools/predator_rgb.py glass firmware                     # back to the built-in effect
 tools/predator_rgb.py all off
 ```
 
-Effects for keyboard and light bar: `static breathing rainbow snake ripple neon rain
+Effects for the keyboard: `static breathing rainbow snake ripple neon rain
 explosion pulse stars meteor aura` — speed `1` (fast) to `9` (slow), brightness `0–100`.
 
 ## OpenRGB
@@ -63,7 +64,7 @@ The controller in [`openrgb/AcerPredatorHeliosController/`](openrgb/AcerPredator
 adds four devices to OpenRGB:
 
 * **Acer Predator Helios 16 Keyboard** — Direct (per-key, 128 LEDs), 12 effects, Off
-* **Acer Predator Helios 16 InfiniteRing** — Static, Breathing, effects, Off
+* **Acer Predator Helios 16 Light Bar** — Direct (per LED), zones Left Edge / Front Edge / Palm Rest Logo, Firmware
 * **Acer Predator Helios 16 Lid Logo** — Direct (14 LEDs), Firmware
 * **Acer Predator Helios 16 Glass Bar** — Direct (16 LEDs), Firmware
 
@@ -93,7 +94,6 @@ patch or unload `i2c_dev` for the duration of a boot-time restore call.
   welcome.
 * **Effect ids 0x03–0x28**: taken from the PredatorSense binary, only Static and
   Breathing are eyeball-verified so far.
-* **InfiniteRing LampArray interface** (33 lamps): untested, might allow per-LED control
   of the front bar.
 * **Other models**: PH16-71/72, PHN16-7x, PH18 — reports welcome.
 

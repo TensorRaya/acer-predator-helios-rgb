@@ -2,8 +2,8 @@
 | AcerPredatorHeliosControllerDetect.cpp                    |
 |                                                           |
 |   Detector for Acer Predator Helios 16 (PH16-7x) RGB      |
-|   devices: keyboard MCU, InfiniteRing light bar and the   |
-|   Cover Logo HID LampArrays                               |
+|   devices: keyboard MCU and the Darfon HID LampArrays     |
+|   (front light bar, lid logo, rear glass bar)             |
 |                                                           |
 |   Raya Elena Solano                           10 Sep 2026 |
 |                                                           |
@@ -28,16 +28,13 @@
 #define ACER_HELIOS_KB_INTERFACE        3
 
 /*---------------------------------------------------------*\
-| Darfon devices                                            |
+| Darfon devices: "InfiniteRing" 0D62:A20A exposes the      |
+| left/front edge + palm rest logo (33 lamps) as a HID      |
+| LampArray on interface 1; "Cover Logo" 0D62:A00A exposes  |
+| the lid logo                                              |
+| (14 lamps, interface 1) and the rear glass bar (16 lamps, |
+| interface 2) as HID LampArrays                            |
 \*---------------------------------------------------------*/
-#define DARFON_VID                      0x0D62
-#define DARFON_INFINITERING_PID         0xA20A
-#define DARFON_COVER_LOGO_PID           0xA00A
-#define DARFON_VENDOR_INTERFACE         0
-#define DARFON_LAMPARRAY_LOGO_INTERFACE 1
-#define DARFON_LAMPARRAY_BAR_INTERFACE  2
-#define HID_USAGE_PAGE_LAMPARRAY        0x0059
-#define HID_USAGE_LAMPARRAY             0x0001
 
 DetectedControllers DetectAcerPredatorHeliosKeyboard(hid_device_info* info, const std::string& name)
 {
@@ -47,27 +44,13 @@ DetectedControllers DetectAcerPredatorHeliosKeyboard(hid_device_info* info, cons
     if(dev)
     {
         std::shared_ptr<AcerPredatorHeliosController> controller = std::make_shared<AcerPredatorHeliosController>(dev, info->path, name.c_str());
-        detected_controllers.push_back(new RGBController_AcerPredatorHelios(controller, true));
+        detected_controllers.push_back(new RGBController_AcerPredatorHelios(controller));
     }
 
     return(detected_controllers);
 }
 
-DetectedControllers DetectAcerPredatorHeliosLightBar(hid_device_info* info, const std::string& name)
-{
-    DetectedControllers detected_controllers;
-    hid_device*         dev = hid_open_path(info->path);
-
-    if(dev)
-    {
-        std::shared_ptr<AcerPredatorHeliosController> controller = std::make_shared<AcerPredatorHeliosController>(dev, info->path, name.c_str());
-        detected_controllers.push_back(new RGBController_AcerPredatorHelios(controller, false));
-    }
-
-    return(detected_controllers);
-}
-
-static DetectedControllers DetectLampArray(hid_device_info* info, const std::string& name, const char* zone_name)
+static DetectedControllers DetectLampArray(hid_device_info* info, const std::string& name, const RGBController_AcerPredatorHeliosLampArray::lamp_segments& segments)
 {
     DetectedControllers detected_controllers;
     hid_device*         dev = hid_open_path(info->path);
@@ -78,25 +61,46 @@ static DetectedControllers DetectLampArray(hid_device_info* info, const std::str
 
         if(controller->GetLampCount() > 0)
         {
-            detected_controllers.push_back(new RGBController_AcerPredatorHeliosLampArray(controller, zone_name));
+            detected_controllers.push_back(new RGBController_AcerPredatorHeliosLampArray(controller, segments));
         }
     }
 
     return(detected_controllers);
 }
 
+DetectedControllers DetectAcerPredatorHeliosLightBar(hid_device_info* info, const std::string& name)
+{
+    /*-----------------------------------------------------*\
+    | Lamps 0-3 sit in the left edge, 4-17 run along the    |
+    | front edge left to right, 18-32 light the Predator    |
+    | logo and stripes on the right palm rest               |
+    \*-----------------------------------------------------*/
+    RGBController_AcerPredatorHeliosLampArray::lamp_segments segments;
+    segments.push_back(std::make_pair("Left Edge",      4));
+    segments.push_back(std::make_pair("Front Edge",     14));
+    segments.push_back(std::make_pair("Palm Rest Logo", 15));
+
+    return(DetectLampArray(info, name, segments));
+}
+
 DetectedControllers DetectAcerPredatorHeliosLidLogo(hid_device_info* info, const std::string& name)
 {
-    return(DetectLampArray(info, name, "Lid Logo"));
+    RGBController_AcerPredatorHeliosLampArray::lamp_segments segments;
+    segments.push_back(std::make_pair("Lid Logo", 0));
+
+    return(DetectLampArray(info, name, segments));
 }
 
 DetectedControllers DetectAcerPredatorHeliosGlassBar(hid_device_info* info, const std::string& name)
 {
-    return(DetectLampArray(info, name, "Glass Bar"));
+    RGBController_AcerPredatorHeliosLampArray::lamp_segments segments;
+    segments.push_back(std::make_pair("Glass Bar", 0));
+
+    return(DetectLampArray(info, name, segments));
 }
 
 REGISTER_HID_DETECTOR_I  ("Acer Predator Helios 16 Keyboard",       DetectAcerPredatorHeliosKeyboard, 0x05AF, 0x667B, 3);
 REGISTER_HID_DETECTOR_I  ("Acer Predator Helios 16 Keyboard",       DetectAcerPredatorHeliosKeyboard, 0x04F2, 0x0117, 3);
-REGISTER_HID_DETECTOR_I  ("Acer Predator Helios 16 InfiniteRing",   DetectAcerPredatorHeliosLightBar, 0x0D62, 0xA20A, 0);
+REGISTER_HID_DETECTOR_IPU("Acer Predator Helios 16 Light Bar",      DetectAcerPredatorHeliosLightBar, 0x0D62, 0xA20A, 1, 0x0059, 0x0001);
 REGISTER_HID_DETECTOR_IPU("Acer Predator Helios 16 Lid Logo",       DetectAcerPredatorHeliosLidLogo,  0x0D62, 0xA00A, 1, 0x0059, 0x0001);
 REGISTER_HID_DETECTOR_IPU("Acer Predator Helios 16 Glass Bar",      DetectAcerPredatorHeliosGlassBar, 0x0D62, 0xA00A, 2, 0x0059, 0x0001);
