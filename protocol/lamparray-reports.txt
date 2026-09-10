@@ -1,0 +1,21 @@
+== hidraw14
+  report 1 (22 B payload):
+     FEAT size=16 count=1 range=0..65535 usages=['0x1', '0x2', '0x3']
+     FEAT size=32 count=5 range=0..2147483647 usages=['0x4', '0x5', '0x6', '0x7', '0x8']
+  report 2 (2 B payload):
+     FEAT size=16 count=1 range=0..65535 usages=['0x20', '0x21']
+  report 3 (28 B payload):
+     FEAT size=16 count=1 range=0..65535 usages=['0x22', '0x21']
+     FEAT size=32 count=5 range=0..2147483647 usages=['0x23', '0x24', '0x25', '0x27', '0x26']
+     FEAT size=8 count=6 range=0..255 usages=['0x28', '0x29', '0x2a', '0x2b', '0x2c', '0x2d']
+  report 4 (50 B payload):
+     FEAT size=8 count=1 range=0..8 usages=['0x50', '0x3']
+     FEAT size=8 count=1 range=0..1 usages=['0x55']
+     FEAT size=16 count=8 range=0..65535 usages=['0x21']
+     FEAT size=8 count=32 range=0..255 usages=['0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54', '0x51', '0x52', '0x53', '0x54']
+  report 5 (9 B payload):
+     FEAT size=8 count=1 range=0..1 usages=['0x60', '0x55']
+     FEAT size=16 count=2 range=0..65535 usages=['0x61', '0x62']
+     FEAT size=8 count=4 range=0..255 usages=['0x51', '0x52', '0x53', '0x54']
+  report 6 (1 B payload):
+     FEAT size=8 count=1 range=0..1 usages=['0x70', '0x71']

@@ -1,0 +1,6 @@
+Bus 003 Device 007: ID 0d62:a20a Darfon Electronics Corp. InfiniteRing
+Bus 003 Device 009: ID 0d62:a00a Darfon Electronics Corp. Cover Logo
+Bus 003 Device 005: ID 05af:667b Jing-Mold Enterprise Co., Ltd Keyboard
+Predator PH16-73
+Emira_ARX
+V1.52
