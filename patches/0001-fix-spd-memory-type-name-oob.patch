@@ -1,0 +1,44 @@
+From 4fd929eaceea1e0df5c86f2b8999bd4aae694ad0 Mon Sep 17 00:00:00 2001
+From: Raya Elena Solano <raya.solano@mbinf.de>
+Date: Thu, 10 Sep 2026 22:48:11 +0200
+Subject: [PATCH] Fix out-of-bounds read of spd_memory_type_name in DRAM
+ detection
+
+On systems without SPD EEPROMs (soldered LPDDR5X laptops) a non-DIMM
+device answering at 0x50-0x57 can make SPDDetector report an arbitrary
+memory type byte. spd_memory_type_name has 20 entries, so the LOG_INFO in
+BackgroundDetectI2CDRAMDevices read past the table and crashed in
+vsnprintf. Clamp the lookup to the table size.
+
+Observed as a sporadic SIGSEGV (roughly 1 in 10 starts) of both the CLI
+and the GUI on an Acer Predator PH16-73; 25/25 clean starts with this
+change.
+---
+ DetectionManager.cpp | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/DetectionManager.cpp b/DetectionManager.cpp
+index b076f62..edde0ed 100644
+--- a/DetectionManager.cpp
++++ b/DetectionManager.cpp
+@@ -1051,7 +1051,16 @@ void DetectionManager::BackgroundDetectI2CDRAMDevices(json& detector_settings)
+                 {
+                     SPDWrapper accessor(spd);
+                     dram_type = spd.memory_type();
+-                    LOG_INFO("[%s] Detected occupied slot %d, bus %d, type %s", DETECTIONMANAGER, spd_addr - 0x50 + 1, bus, spd_memory_type_name[dram_type]);
++
++                    /*-------------------------------------*\
++                    | A bogus SPD read (e.g. a non-DIMM     |
++                    | device answering at 0x50-0x57) can    |
++                    | return any byte; keep the name lookup |
++                    | inside the table                      |
++                    \*-------------------------------------*/
++                    const char* dram_type_name = (dram_type <= SPD_LPDDR5_SDRAM) ? spd_memory_type_name[dram_type] : "Unknown";
++
++                    LOG_INFO("[%s] Detected occupied slot %d, bus %d, type %s", DETECTIONMANAGER, spd_addr - 0x50 + 1, bus, dram_type_name);
+                     LOG_DEBUG("[%s] JEDEC ID: 0x%04x", DETECTIONMANAGER, accessor.jedec_id());
+                     slots.push_back(accessor);
+                 }
+-- 
+2.53.0
+

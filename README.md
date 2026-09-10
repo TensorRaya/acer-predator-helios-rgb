@@ -77,13 +77,14 @@ cd OpenRGB && mkdir build && cd build && qmake6 ../OpenRGB.pro && make -j$(nproc
 ./openrgb -l
 ```
 
-Upstream merge request: *(link follows once opened)* — tracking issue
-[OpenRGB #4158](https://gitlab.com/CalcProgrammer1/OpenRGB/-/work_items/4158).
+Upstream merge requests: [!3597](https://gitlab.com/CalcProgrammer1/OpenRGB/-/merge_requests/3597) (controllers) and
+[!3598](https://gitlab.com/CalcProgrammer1/OpenRGB/-/merge_requests/3598) (fix for the sporadic DRAM-detector crash below) — tracking issue
+[OpenRGB #4158](https://gitlab.com/CalcProgrammer1/OpenRGB/-/issues/4158).
 
-Known OpenRGB 1.0 issue unrelated to this controller: the CLI occasionally segfaults in
-the I²C/DRAM detector thread on this laptop (`LogManager::LogEntry_va` via
-`BackgroundDetectI2CDRAMDevices`). Work-around for a boot-time restore service: unload
-`i2c_dev` for the duration of the call, or retry.
+Known OpenRGB 1.0 bug unrelated to this controller: on laptops with soldered RAM the DRAM
+detector can read an out-of-range memory-type byte and crash in `LogManager::LogEntry_va`
+(about 1 start in 10). Fixed in !3598; until that is merged, either apply that one-line
+patch or unload `i2c_dev` for the duration of a boot-time restore call.
 
 ## Contributing / what is still open
 
