@@ -5,8 +5,9 @@ running CachyOS (Linux 6.17) on 2026-09-10. The keyboard protocol is identical t
 USBPcap captures of PredatorSense on a PH16-71 show (see [Sources](#sources)), so it
 should hold for the whole PH16-71/72/73 family and very likely the Helios Neo (PHN16-7x).
 
-The laptop has **four independently lit areas**, served by **three USB HID devices**
-speaking **two different protocols**. None of them is reachable through ACPI-WMI on the
+The laptop has **five independently lit areas**: four served by **three USB HID devices**
+speaking **two different protocols**, plus the button above the keyboard on an ENE I²C
+chip that OpenRGB already supports. None of them is reachable through ACPI-WMI on the
 PH16-73 — `acer-wmi`/`linuwu-sense` `four_zone_mode` writes are accepted by the firmware
 but do nothing visible.
 
@@ -116,10 +117,54 @@ Off = APPLY with `BRT = 0` (the firmware has no dedicated off command).
 Cell → physical key mapping is **not yet known**. 128 cells cover the 4-zone keyboard;
 filling all cells with one colour lights the whole keyboard. Contributions welcome.
 
+### Per-key cell map (Sunrex `05AF:667B`, PH16-73, ISO/DE)
+
+The MCU numbers the 128 frame cells **column-wise, top to bottom**, then left to right
+(0 Esc, 1 `^`, 2 Tab, 3 Caps, 4 Shift, 5 Ctrl, 6 F1, 7 `1`, 8 Q, …). This differs from
+the Chicony `04F2:0117` order documented by fuho for the PH16-71 (row-wise), so the two
+MCUs need separate maps. Recorded by lighting one cell at a time and capturing the evdev
+key event ([`keymap-ph16-73-sunrex.json`](keymap-ph16-73-sunrex.json) has the full table);
+Fn, media keys, power, Predator and Copilot keys produce no keyboard event and were
+identified visually. 104 of 128 cells have a key, 24 are unused.
+
+| 0: ESC | 1: GRAVE | 2: TAB | 3: CAPSLOCK | 4: LEFTSHIFT | 5: LEFTCTRL | 6: F1 | 7: 1 |
+| 8: Q | 9: A | 10: 102ND | 11: FN | 12: F2 | 13: 2 | 14: W | 15: S |
+| 16: Z | 17: LEFTMETA | 18: F3 | 19: 3 | 20: E | 21: D | 22: X | 23: LEFTALT |
+| 24: F4 | 25: 4 | 26: R | 27: F | 28: C | 29: - | 30: F5 | 31: 5 |
+| 32: T | 33: G | 34: V | 35: - | 36: F6 | 37: 6 | 38: Y | 39: H |
+| 40: B | 41: SPACE | 42: F7 | 43: 7 | 44: U | 45: J | 46: N | 47: - |
+| 48: F8 | 49: 8 | 50: I | 51: K | 52: M | 53: - | 54: F9 | 55: 9 |
+| 56: O | 57: L | 58: COMMA | 59: RIGHTALT | 60: F10 | 61: 0 | 62: P | 63: SEMICOLON |
+| 64: DOT | 65: COMPOSE | 66: F11 | 67: MINUS | 68: LEFTBRACE | 69: APOSTROPHE | 70: SLASH | 71: - |
+| 72: F12 | 73: EQUAL | 74: RIGHTBRACE | 75: - | 76: - | 77: - | 78: SYSRQ | 79: - |
+| 80: - | 81: - | 82: - | 83: COPILOT | 84: INSERT | 85: - | 86: - | 87: BACKSLASH |
+| 88: RIGHTSHIFT | 89: LEFT | 90: DELETE | 91: BACKSPACE | 92: - | 93: ENTER | 94: UP | 95: DOWN |
+| 96: PREVIOUSSONG | 97: PREDATOR | 98: KP7 | 99: KP4 | 100: KP1 | 101: RIGHT | 102: PLAYPAUSE | 103: NUMLOCK |
+| 104: KP8 | 105: KP5 | 106: KP2 | 107: KP0 | 108: NEXTSONG | 109: KPSLASH | 110: KP9 | 111: KP6 |
+| 112: KP3 | 113: KPDOT | 114: POWER | 115: KPASTERISK | 116: KPMINUS | 117: KPPLUS | 118: - | 119: KPENTER |
+| 120: - | 121: - | 122: - | 123: - | 124: - | 125: - | 126: - | 127: - |
+
+The Predator key (cell 97) and the Copilot key (cell 83) are part of the keyboard array.
+The **lit button above the keyboard, top left** is *not* — see section 3.
+
 ### Quirks
 
-* The keyboard backlight goes to sleep after ~30 s without input (firmware). Colour
-  commands are accepted while asleep and become visible on the next key press.
+* **Idle-off is EC firmware and cannot be switched off from the host.** The keyboard
+  backlight goes dark after ~30 s without input and wakes on the next key press. Tested on
+  the PH16-73 without effect: `predator_sense/backlight_timeout` (linuwu-sense, WMI GUID
+  `61EF69EA-…` arg `0x88402`/`0x1E0000088402`) in both positions, KDE PowerDevil (there is
+  no `kbd_backlight` LED class device, so KDE does not even know the keyboard), and the WMI
+  colour path. Colour commands are accepted while asleep and become visible on wake. The
+  only working approach is a keepalive that re-applies the state every ≤30 s — Venator does
+  the same (`start_keepalive`, 30 s). Our variant runs through the OpenRGB SDK server so
+  there is exactly one writer, and only while the lid is open and the internal panel is on
+  (`/proc/acpi/button/lid/*/state`, `/sys/class/drm/card*-eDP-*/dpms`).
+* **Zone-mode STATIC did not take effect in one late-night session** while per-key frames
+  did: after a WMI `four_zone_mode` write (00:11) every vendor `B1 … 08 02 01 …` sequence
+  (USB), every `per_zone_mode`/`four_zone_mode` write and even a USB re-enumeration of the
+  MCU left the keyboard on the previously set colour, whereas a 128-cell per-key frame was
+  visible immediately. Not reproduced yet with a clean baseline (no prior WMI write); treat
+  zone-mode static as *unverified after a WMI write* and prefer per-key fill for "static".
 * `hid_write` on the vendor interface (interrupt OUT, report ID 0) is **not** a substitute
   for the feature report — commands sent that way are ignored.
 * Interfaces 0–2 of the keyboard also accept feature reports (usage pages `0xFF89`,
@@ -127,7 +172,7 @@ filling all cells with one colour lights the whole keyboard. Contributions welco
 
 ---
 
-## 2. HID LampArray (lid logo, rear glass bar)
+## 2. HID LampArray (front bar, lid logo, rear glass bar)
 
 The Darfon "Cover Logo" device implements the **standard USB HID LampArray usage page
 (0x59)** — the same interface Windows Dynamic Lighting uses. No vendor knowledge needed;
@@ -178,9 +223,11 @@ Recorded so that nobody repeats it:
 | Path | Result |
 |---|---|
 | `acer-wmi` / `linuwu-sense` `four_zone_mode`, `per_zone_mode` (WMI GUID `7A4DDFE7-…`, method 20) | Firmware returns success, no LED changes. Method 21 (GET) returns error 1. |
-| ENE `0CF2:5130` (OpenRGB "Acer Nitro HID" controller) | Device exists (I²C `ENEK5130`) and accepts reports, but drives no visible LED on this model. It **does** drive the keyboard on Nitro models. |
+| ENE `0CF2:5130` (OpenRGB "Acer Nitro HID" controller) | Does **not** drive the keyboard here — but it **does drive the lit button above the keyboard (top left)**. OpenRGB's existing controller (`openrgb -d "Acer Nitro HID LED Device" -m Static -c 00FF00`) hits it; a hand-rolled 11-byte report did not. So the PH16-73 has **five** lit areas, and the fifth needs no new code — just include the device in the profile. |
 | Rust `predator-sense` `magic_rgb.rs` (decompiled DLL protocol, `0x41` mode byte layout) | Ignored by the keyboard MCU — layout differs from the captured one above. |
 | Feature reports on keyboard interfaces 0/1/2 | Accepted, no effect. |
+| Darfon vendor interface 0 for effects | Cover Logo: firmware effects (e.g. Breathing) **work** while `AutonomousMode = 1`, but only for the lid logo — no zone selector reaches the glass bar (tried colour byte P1 and APPLY byte P6 = 1/2/6). InfiniteRing: colour is accepted, effect ids are not, and the strip **flickers** in vendor mode; stable via LampArray. |
+| `predator_sense/backlight_timeout` | Reads/writes fine, no influence on the ~30 s keyboard idle-off (see keyboard quirks). |
 
 ---
 

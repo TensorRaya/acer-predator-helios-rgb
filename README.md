@@ -35,6 +35,7 @@ This repository writes it all down so the next person needs ten minutes, not a d
 | Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` | 1 | HID LampArray, 33 lamps (left edge 4, front edge 14, palm rest logo 15) |
 | Lid logo | `0D62:A00A` | 1 | HID LampArray, 14 lamps |
 | Rear glass bar | `0D62:A00A` | 2 | HID LampArray, 16 lamps |
+| Button above the keyboard (top left) | `0CF2:5130` ENE, I²C | – | already supported by OpenRGB ("Acer Nitro HID LED Device") |
 
 Details, byte tables, quirks and everything that does *not* work: [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 
@@ -89,9 +90,13 @@ patch or unload `i2c_dev` for the duration of a boot-time restore call.
 
 ## Contributing / what is still open
 
-* **Per-key map**: which of the 128 frame cells is which key. Fill the frame with one
-  coloured cell at a time and note where it lights up; a PR with the table is very
-  welcome.
+* **Per-key map for the Chicony MCU** (`04F2:0117`, PH16-71): the Sunrex map is in
+  `protocol/keymap-ph16-73-sunrex.json`; the Chicony order differs (fuho's rgbkb has a
+  row-wise layout for it). `tools/keymap-learn.py`-style recording: light one cell, press
+  the key, record the evdev code.
+* **Zone-mode static after a WMI write**: see PROTOCOL.md keyboard quirks — reproduce
+  with a clean baseline.
+* **Keyboard idle-off**: EC firmware, no host switch found; keepalive it is.
 * **Effect ids 0x03–0x28**: taken from the PredatorSense binary, only Static and
   Breathing are eyeball-verified so far.
   of the front bar.
@@ -101,7 +106,9 @@ patch or unload `i2c_dev` for the duration of a boot-time restore call.
 
 * **roosterduck** — USBPcap captures of PredatorSense on a PH16-71 (OpenRGB #4158). Without
   those three files nothing here would exist.
-* **fuho** — first analysis of the captures in the same thread.
+* **fuho** — first analysis of the captures in the same thread, and the PH16-71 (Chicony)
+  key map in [rgbkb](https://github.com/fuho/rgbkb) that showed the two MCUs number their
+  cells differently.
 * **Exyons/Venator** — PH16-71 kernel module whose source confirmed the keyboard protocol
   and effect catalogue.
 * **lau-bin/acer_brightness** — WMI method 20 layout that let us rule the WMI path out.
