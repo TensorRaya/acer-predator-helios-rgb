@@ -40,6 +40,8 @@ def find_hidraw(vid, pid, interface):
         if f"{vid:04X}:0000{pid:04X}" not in uevent:
             continue
         dev = os.path.realpath(h + "/device")
+        if interface is None:                      # I2C-HID (no USB interface number), e.g. the ENE top key
+            return "/dev/" + os.path.basename(h)
         try:
             iface = int(open(dev + "/../bInterfaceNumber").read(), 16)
         except OSError:
@@ -131,7 +133,17 @@ ZONES = {
     "lightbar": [(0x0D62, 0xA20A, 1)],
     "logo":     [(0x0D62, 0xA00A, 1)],
     "glass":    [(0x0D62, 0xA00A, 2)],
+    # Lit button above the keyboard (top left): ENE 0CF2:5130, I2C-HID, vendor usage page 0xFF5A.
+    # Same 16-byte feature report OpenRGB's "Acer Nitro HID LED Device" controller uses.
+    "topkey":   [(0x0CF2, 0x5130, None)],
 }
+ENE_DEVICE_ID = 0x65
+ENE_MODE_STATIC = 0x01
+
+def ene_set(dev, rgb, brightness):
+    """topkey: 0xA4 <dev_id> <mode> <brightness> <speed> <direction> r g b <zone=0x0F> 0 … (16 bytes)."""
+    pkt = [0xA4, ENE_DEVICE_ID, ENE_MODE_STATIC, brightness & 0xFF, 0x00, 0x00, *rgb, 0x0F, 0x00]
+    dev.set_feature(pkt + [0] * (16 - len(pkt)))
 
 def open_zone(zone):
     for vid, pid, iface in ZONES[zone]:
@@ -169,6 +181,13 @@ def main():
                     vendor_effect(dev, "off" if a.mode == "off" else a.mode, rgb, a.brightness, a.speed)
                 else:
                     sys.exit(f"{z}: unknown mode {a.mode}")
+            elif z == "topkey":
+                if a.mode == "off":
+                    ene_set(dev, (0, 0, 0), 0)
+                elif a.mode in ("color", "static"):
+                    ene_set(dev, rgb, a.brightness)
+                else:
+                    sys.exit(f"{z}: unknown mode {a.mode} (topkey: color|static|off)")
             else:
                 if a.mode == "firmware":
                     lamparray_autonomous(dev, True)
