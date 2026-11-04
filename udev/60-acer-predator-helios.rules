@@ -1,9 +1,13 @@
 # Acer Predator Helios 16 RGB (OpenRGB): keyboard MCU, Darfon InfiniteRing, Darfon Cover Logo
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="05af", ATTRS{idProduct}=="667b", TAG+="uaccess"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="05af", ATTRS{idProduct}=="667a", TAG+="uaccess"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="04f2", ATTRS{idProduct}=="0117", TAG+="uaccess"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0d62", ATTRS{idProduct}=="a20a", TAG+="uaccess"
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0d62", ATTRS{idProduct}=="a00a", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEMS=="usb", ATTRS{idVendor}=="05af", ATTRS{idProduct}=="667b", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEMS=="usb", ATTRS{idVendor}=="05af", ATTRS{idProduct}=="667a", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEMS=="usb", ATTRS{idVendor}=="04f2", ATTRS{idProduct}=="0117", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEMS=="usb", ATTRS{idVendor}=="0d62", ATTRS{idProduct}=="a20a", TAG+="uaccess"
 KERNEL=="hidraw*", SUBSYSTEMS=="usb", ATTRS{idVendor}=="0d62", ATTRS{idProduct}=="a00a", TAG+="uaccess"
+# Lit button above the keyboard (ENE 0CF2:5130, I2C-HID, "topkey")
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{name}=="ENEK5130:00", TAG+="uaccess"

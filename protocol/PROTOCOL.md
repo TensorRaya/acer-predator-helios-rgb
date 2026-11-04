@@ -13,7 +13,7 @@ but do nothing visible.
 
 | Area | USB device | Interface | Protocol |
 |---|---|---|---|
-| Keyboard backlight (per-key capable) | `05AF:667B` Jing-Mold/Sunrex "ACER Keyboard" (Chicony `04F2:0117` on some units) | 3 (usage page `0xFF02`) | Acer vendor protocol |
+| Keyboard backlight (per-key capable) | `05AF:667B` or `05AF:667A` Jing-Mold/Sunrex "ACER Keyboard" (Chicony `04F2:0117` on some units) | 3 (usage page `0xFF02`) | Acer vendor protocol |
 | Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` Darfon | 1 (usage page `0x59`) | **HID LampArray**, 33 lamps |
 | Lid logo | `0D62:A00A` Darfon "Cover Logo" | 1 (usage page `0x59`) | **HID LampArray**, 14 lamps |
 | Rear glass bar (above the I/O ports) | `0D62:A00A` Darfon "Cover Logo" | 2 (usage page `0x59`) | **HID LampArray**, 16 lamps |
@@ -243,3 +243,30 @@ Recorded so that nobody repeats it:
 * [lau-bin/acer_brightness](https://github.com/lau-bin/acer_brightness) — WMI method 20
   payload layout (tested on PHN16-73) that let us rule the WMI path out quickly.
 * USB HID Usage Tables 1.5, section 25 "Lighting And Illumination Page (0x59)".
+
+## Addendum: PH16-73 with keyboard `05AF:667A`
+
+Found on a second PH16-73 (BIOS V1.53) whose keyboard enumerates as `05AF:667A` instead of `667B`.
+
+* **APPLY colour source.** In `08 02 <effect> <speed> <brightness> P5 P6`, P5 selects where the colour
+  comes from: `01` = a built-in preset picked by P6 (`05` = blue), `00` = the colour from SET_COLOR (`14`).
+  With the `01 05` tail every effect came out blue whatever SET_COLOR said, and `01 00` was blue too;
+  `00 00` (with SET_COLOR repeated after APPLY) gives the requested colour for static and breathing.
+  The tool uses `00 00` only for `667A`; `667B` keeps `01 05`.
+* **ENE `0CF2:5130` modes.** Report `A1` lists one target, `0x65`; `A2 65` then `A3` returns
+  `a3 65 01 09 01 00 00 00 3b` (1 zone, mode mask `0x3b`). Using the mode numbering from
+  [predator-sense](https://github.com/cleyton1986/predator-sense) (`hid_rgb.rs`), `A4 65 <mode> …` with
+  mode `01` turns the LED **off**, `02` = static, `04` = breathing, `05` = neon (all confirmed by eye);
+  mode `06` is advertised but untested. Zone mask `01 00` at bytes 9-10.
+* **MagKey (magnetic W/A/S/D).** Driven through the same keyboard interface (`05AF:667A` if 3).
+  * Effects: `B1`, `08 02`, `08 02 <code> <speed> <brightness> <dir: 00 / E0 reversed> 00`, then
+    `14 00 01 R G B 00`; P2 = `01` in SET_COLOR targets the MagKey LEDs. Codes are the `MAG_*` ids
+    from SunrexUSBKeyboard.dll (predator-sense numbering): static `41`, breathing `42`, snake `44`,
+    neon `45`, spot `46`, star `47`, rainbow `48` (fixed rainbow across the 4 keys), slash `49`,
+    zoom `4A`, slash1-4 `4B`-`4E`, row wave `50`, swiping `51`. Confirmed by eye: static, breathing,
+    rainbow, zoom, row wave, swiping. Wave `43` leaves the keys dark (tried byte 7 = 0/1/2);
+    off `40` did not turn them off.
+  * Per-key: `88`, `B1`, `08 02`, `08 02 4F 0A 32 E0 00`, `14 00 01 00 00 00 00`, `13 00 00 08`,
+    then a 64-byte output report of 12 slots `{FF R G B}` (W = slots 0-2, A = 3-5, S = 6-8,
+    D = 9-11; zeroed slots are dark) written ~30 times 3 ms apart, then `08 02 4F 05 32 08 01`.
+    An all-zero frame is a reliable "off".
