@@ -31,7 +31,7 @@ This repository writes it all down so the next person needs ten minutes, not a d
 
 | Zone | USB ID | Interface | Protocol |
 |---|---|---|---|
-| Keyboard | `05AF:667B` (or `04F2:0117`) | 3 | Acer vendor, feature reports + 512-byte per-key frames |
+| Keyboard | `05AF:667B` / `05AF:667A` (or `04F2:0117`) | 3 | Acer vendor, feature reports + 512-byte per-key frames |
 | Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` | 1 | HID LampArray, 33 lamps (left edge 4, front edge 14, palm rest logo 15) |
 | Lid logo | `0D62:A00A` | 1 | HID LampArray, 14 lamps |
 | Rear glass bar | `0D62:A00A` | 2 | HID LampArray, 16 lamps |

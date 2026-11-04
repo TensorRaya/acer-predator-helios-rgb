@@ -13,7 +13,7 @@ but do nothing visible.
 
 | Area | USB device | Interface | Protocol |
 |---|---|---|---|
-| Keyboard backlight (per-key capable) | `05AF:667B` Jing-Mold/Sunrex "ACER Keyboard" (Chicony `04F2:0117` on some units) | 3 (usage page `0xFF02`) | Acer vendor protocol |
+| Keyboard backlight (per-key capable) | `05AF:667B` or `05AF:667A` Jing-Mold/Sunrex "ACER Keyboard" (Chicony `04F2:0117` on some units) | 3 (usage page `0xFF02`) | Acer vendor protocol |
 | Front light bar + palm rest logo ("InfiniteRing") | `0D62:A20A` Darfon | 1 (usage page `0x59`) | **HID LampArray**, 33 lamps |
 | Lid logo | `0D62:A00A` Darfon "Cover Logo" | 1 (usage page `0x59`) | **HID LampArray**, 14 lamps |
 | Rear glass bar (above the I/O ports) | `0D62:A00A` Darfon "Cover Logo" | 2 (usage page `0x59`) | **HID LampArray**, 16 lamps |
@@ -243,3 +243,18 @@ Recorded so that nobody repeats it:
 * [lau-bin/acer_brightness](https://github.com/lau-bin/acer_brightness) — WMI method 20
   payload layout (tested on PHN16-73) that let us rule the WMI path out quickly.
 * USB HID Usage Tables 1.5, section 25 "Lighting And Illumination Page (0x59)".
+
+## Addendum: PH16-73 with keyboard `05AF:667A`
+
+Found on a second PH16-73 (BIOS V1.53) whose keyboard enumerates as `05AF:667A` instead of `667B`.
+
+* **APPLY colour source.** In `08 02 <effect> <speed> <brightness> P5 P6`, P5 selects where the colour
+  comes from: `01` = a built-in preset picked by P6 (`05` = blue), `00` = the colour from SET_COLOR (`14`).
+  With the `01 05` tail every effect came out blue whatever SET_COLOR said, and `01 00` was blue too;
+  `00 00` (with SET_COLOR repeated after APPLY) gives the requested colour for static and breathing.
+  The tool uses `00 00` only for `667A`; `667B` keeps `01 05`.
+* **ENE `0CF2:5130` modes.** Report `A1` lists one target, `0x65`; `A2 65` then `A3` returns
+  `a3 65 01 09 01 00 00 00 3b` (1 zone, mode mask `0x3b`). Using the mode numbering from
+  [predator-sense](https://github.com/cleyton1986/predator-sense) (`hid_rgb.rs`), `A4 65 <mode> …` with
+  mode `01` turns the LED **off**, `02` = static, `04` = breathing, `05` = neon (all confirmed by eye);
+  mode `06` is advertised but untested. Zone mask `01 00` at bytes 9-10.
