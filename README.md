@@ -36,6 +36,7 @@ This repository writes it all down so the next person needs ten minutes, not a d
 | Lid logo | `0D62:A00A` | 1 | HID LampArray, 14 lamps |
 | Rear glass bar | `0D62:A00A` | 2 | HID LampArray, 16 lamps |
 | Button above the keyboard (top left) | `0CF2:5130` ENE, I²C | – | already supported by OpenRGB ("Acer Nitro HID LED Device") |
+| MagKey (magnetic W/A/S/D) | `05AF:667A` | 3 | Acer vendor protocol (MAG effects + per-key slot frame) |
 
 Details, byte tables, quirks and everything that does *not* work: [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 

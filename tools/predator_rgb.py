@@ -146,7 +146,63 @@ ZONES = {
     # Lit button above the keyboard (top left): ENE 0CF2:5130, I2C-HID, vendor usage page 0xFF5A.
     # Same 16-byte feature report OpenRGB's "Acer Nitro HID LED Device" controller uses.
     "topkey":   [(0x0CF2, 0x5130, None)],
+    # MagKey: the magnetic W/A/S/D keys have their own LEDs, driven through the keyboard MCU.
+    "magkey":   [(0x05AF, 0x667A, 3), (0x05AF, 0x667B, 3)],
 }
+
+# ---------------------------------------------------------------- MagKey (W/A/S/D)
+# Effects use the keyboard's vendor protocol with the MAG_* effect ids from SunrexUSBKeyboard.dll
+# (wire codes as in predator-sense magic_rgb.rs); SET_COLOR byte P2 = 1 targets the MagKey LEDs.
+# Wave (0x43) leaves the keys dark on a PH16-73 whatever the direction bytes, so it isn't offered.
+MAG_EFFECTS = {
+    "off": 0x40, "static": 0x41, "breathing": 0x42, "snake": 0x44, "neon": 0x45,
+    "spot": 0x46, "star": 0x47, "rainbow": 0x48, "slash": 0x49, "zoom": 0x4A, "slash1": 0x4B,
+    "slash2": 0x4C, "slash3": 0x4D, "slash4": 0x4E, "rowwave": 0x50, "swiping": 0x51,
+}
+MAG_KEY_SLOTS = {"w": (0, 1, 2), "a": (3, 4, 5), "s": (6, 7, 8), "d": (9, 10, 11)}   # 3 LEDs per key
+
+def magkey_effect(dev, effect, rgb, brightness=100, speed=5, reverse=False):
+    """speed: 1 = fastest .. 9 = slowest. --reverse flips the direction of moving effects."""
+    if effect == "off":
+        # The MAG "off" effect (0x40) left the keys lit on a PH16-73; an all-dark slot frame works.
+        return magkey_keys(dev, {})
+    code = MAG_EFFECTS[effect]
+    direction = 0xE0 if reverse else 0x00
+    vendor_cmd(dev, OP_MODE_ZONE)
+    vendor_cmd(dev, OP_APPLY, 0x02)
+    vendor_cmd(dev, OP_APPLY, 0x02, code, speed, min(brightness, 100), direction, 0x00)
+    vendor_cmd(dev, OP_SET_COLOR, 0x00, 0x01, *rgb, 0x00)
+
+def magkey_keys(dev, colours):
+    """colours: {'w': (r,g,b), ...}; keys left out stay dark. Slot frame: 12 x {FF R G B}, committed
+    by streaming it ~30 times (reverse-engineered on a PH16-73 with keyboard 05AF:667A)."""
+    vendor_cmd(dev, OP_BEGIN)
+    vendor_cmd(dev, OP_MODE_ZONE)
+    vendor_cmd(dev, OP_APPLY, 0x02)
+    vendor_cmd(dev, OP_APPLY, 0x02, 0x4F, 0x0A, 0x32, 0xE0, 0x00)
+    vendor_cmd(dev, OP_SET_COLOR, 0x00, 0x01, 0, 0, 0, 0x00)
+    vendor_cmd(dev, 0x13, 0x00, 0x00, 0x08)
+    frame = bytearray(64)
+    for key, (r, g, b) in colours.items():
+        for slot in MAG_KEY_SLOTS[key]:
+            frame[slot * 4:slot * 4 + 4] = bytes((0xFF, r, g, b))
+    for _ in range(30):
+        dev.write(frame)
+        time.sleep(0.003)
+    vendor_cmd(dev, OP_APPLY, 0x02, 0x4F, 0x05, 0x32, 0x08, 0x01)
+
+def parse_keys(spec, default_rgb):
+    """'w=FF0000,a=00FF00' -> {'w': (255,0,0), 'a': (0,255,0)}; empty spec -> all four keys default_rgb."""
+    if not spec:
+        return {k: default_rgb for k in MAG_KEY_SLOTS}
+    out = {}
+    for part in spec.split(","):
+        key, _, colour = part.partition("=")
+        key = key.strip().lower()
+        if key not in MAG_KEY_SLOTS:
+            sys.exit(f"magkey: unknown key {key!r} (use w, a, s, d)")
+        out[key] = parse_rgb(colour) if colour else default_rgb
+    return out
 ENE_DEVICE_ID = 0x65
 # ENE modes (predator-sense hid_rgb.rs numbering). The PH16-73 target 0x65 advertises 1,2,4,5,6;
 # mode 0x01 turns the LED off there, 0x02 is static.
@@ -179,12 +235,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("zone", choices=list(ZONES) + ["all"])
     ap.add_argument("mode", help="keyboard: " + "|".join(["color"] + list(EFFECTS)) + "|perkey|off ; "
-                    "lightbar/logo/glass: color|firmware|off ; topkey: color|breathing|neon|off")
+                    "lightbar/logo/glass: color|firmware|off ; topkey: color|breathing|neon|off ; "
+                    "magkey: keys|color|" + "|".join(MAG_EFFECTS))
     ap.add_argument("rgb", nargs="?", default="FFFFFF", help="RRGGBB")
     ap.add_argument("--brightness", type=int, default=100, help="0-100 (vendor zones)")
     ap.add_argument("--speed", type=int, default=5, help="1 fast .. 9 slow (vendor zones)")
     ap.add_argument("--intensity", type=int, default=255, help="0-255 (lamparray zones)")
     ap.add_argument("--lamps", default=None, help="lamp range FIRST-LAST for lamparray zones, e.g. 18-32")
+    ap.add_argument("--keys", default=None, help="magkey keys: per-key colours, e.g. w=FF0000,a=00FF00,s=0000FF,d=FFFFFF")
+    ap.add_argument("--reverse", action="store_true", help="reverse direction (magkey effects)")
     a = ap.parse_args()
     rgb = parse_rgb(a.rgb)
     zones = list(ZONES) if a.zone == "all" else [a.zone]
@@ -204,6 +263,14 @@ def main():
                     vendor_effect(dev, mode, rgb, a.brightness, a.speed)
                 else:
                     sys.exit(f"{z}: unknown mode {a.mode}")
+            elif z == "magkey":
+                mode = "static" if a.mode == "color" else a.mode
+                if mode == "keys":
+                    magkey_keys(dev, parse_keys(a.keys, rgb))
+                elif mode in MAG_EFFECTS:
+                    magkey_effect(dev, mode, rgb, a.brightness, a.speed, a.reverse)
+                else:
+                    sys.exit(f"{z}: unknown mode {a.mode} (magkey: keys|color|{'|'.join(MAG_EFFECTS)})")
             elif z == "topkey":
                 if a.mode == "off":
                     ene_set(dev, (0, 0, 0), 0, ENE_MODE_OFF)

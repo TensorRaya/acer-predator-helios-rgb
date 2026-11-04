@@ -258,3 +258,15 @@ Found on a second PH16-73 (BIOS V1.53) whose keyboard enumerates as `05AF:667A` 
   [predator-sense](https://github.com/cleyton1986/predator-sense) (`hid_rgb.rs`), `A4 65 <mode> …` with
   mode `01` turns the LED **off**, `02` = static, `04` = breathing, `05` = neon (all confirmed by eye);
   mode `06` is advertised but untested. Zone mask `01 00` at bytes 9-10.
+* **MagKey (magnetic W/A/S/D).** Driven through the same keyboard interface (`05AF:667A` if 3).
+  * Effects: `B1`, `08 02`, `08 02 <code> <speed> <brightness> <dir: 00 / E0 reversed> 00`, then
+    `14 00 01 R G B 00`; P2 = `01` in SET_COLOR targets the MagKey LEDs. Codes are the `MAG_*` ids
+    from SunrexUSBKeyboard.dll (predator-sense numbering): static `41`, breathing `42`, snake `44`,
+    neon `45`, spot `46`, star `47`, rainbow `48` (fixed rainbow across the 4 keys), slash `49`,
+    zoom `4A`, slash1-4 `4B`-`4E`, row wave `50`, swiping `51`. Confirmed by eye: static, breathing,
+    rainbow, zoom, row wave, swiping. Wave `43` leaves the keys dark (tried byte 7 = 0/1/2);
+    off `40` did not turn them off.
+  * Per-key: `88`, `B1`, `08 02`, `08 02 4F 0A 32 E0 00`, `14 00 01 00 00 00 00`, `13 00 00 08`,
+    then a 64-byte output report of 12 slots `{FF R G B}` (W = slots 0-2, A = 3-5, S = 6-8,
+    D = 9-11; zeroed slots are dark) written ~30 times 3 ms apart, then `08 02 4F 05 32 08 01`.
+    An all-zero frame is a reliable "off".
